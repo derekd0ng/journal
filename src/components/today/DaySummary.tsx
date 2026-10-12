@@ -1,7 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { buildDaySummary } from 'lib/analytics'
-import type { TimeEntry, Category } from '@/db/schema'
-import type { CategoryKind } from '@/db/schema'
+import type { TimeEntry, Category, CategoryKind } from '@/db/schema'
 
 interface Props {
   entries: TimeEntry[]
@@ -32,22 +31,31 @@ function formatDur(mins: number): string {
 }
 
 export function DaySummary({ entries, categories, dayStart, dayEnd, nowDate }: Props) {
+  const [expanded, setExpanded] = useState<Set<CategoryKind>>(new Set())
+
   const catMap = useMemo(
     () => new Map(categories.map(c => [c.id, c])),
     [categories],
   )
 
-  const summary = useMemo(
-    () => buildDaySummary(entries, dayStart.getTime(), nowDate.getTime(), dayEnd.getTime()),
+  // clamp nowDate to [dayStart, dayEnd] so untracked = elapsed-only, not future
+  const clampedNow = useMemo(
+    () => new Date(Math.min(Math.max(nowDate.getTime(), dayStart.getTime()), dayEnd.getTime())),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [entries, dayStart.getTime(), dayEnd.getTime(), nowDate.getTime()],
+    [nowDate.getTime(), dayStart.getTime(), dayEnd.getTime()],
+  )
+
+  const summary = useMemo(
+    () => buildDaySummary(entries, dayStart.getTime(), clampedNow.getTime(), dayEnd.getTime()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [entries, dayStart.getTime(), dayEnd.getTime(), clampedNow.getTime()],
   )
 
   const { trackedMinutes, untrackedMinutes, remainingMinutes, byCategoryMinutes, grid } = summary
 
   // By-type rows
   const typeRows = TYPE_ORDER.map(kind => {
-    const kindCats = categories.filter(c => c.kind === kind)
+    const kindCats = categories.filter(c => c.kind === kind && !c.archived)
     const total = kindCats.reduce((sum, c) => sum + (byCategoryMinutes.get(c.id) ?? 0), 0)
     const hint = kindCats
       .filter(c => byCategoryMinutes.has(c.id))
@@ -56,7 +64,11 @@ export function DaySummary({ entries, categories, dayStart, dayEnd, nowDate }: P
     const segs = kindCats
       .filter(c => byCategoryMinutes.get(c.id))
       .map(c => ({ color: c.color, pct: ((byCategoryMinutes.get(c.id) ?? 0) / (trackedMinutes || 1)) * 100 }))
-    return { kind, total, segs, ...TYPE_LABELS[kind], hint }
+    const catRows = kindCats
+      .filter(c => (byCategoryMinutes.get(c.id) ?? 0) > 0)
+      .map(c => ({ cat: c, mins: byCategoryMinutes.get(c.id) ?? 0 }))
+      .sort((a, b) => b.mins - a.mins)
+    return { kind, total, segs, catRows, ...TYPE_LABELS[kind], hint }
   }).filter(r => r.total > 0)
 
   // By-category rows (sorted by duration desc)
@@ -65,6 +77,15 @@ export function DaySummary({ entries, categories, dayStart, dayEnd, nowDate }: P
     .sort((a, b) => b[1] - a[1])
     .map(([id, mins]) => ({ cat: catMap.get(id), mins }))
     .filter((r): r is { cat: NonNullable<typeof r.cat>; mins: number } => r.cat !== undefined)
+
+  function toggleExpanded(kind: CategoryKind) {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      if (next.has(kind)) next.delete(kind)
+      else next.add(kind)
+      return next
+    })
+  }
 
   return (
     <section
@@ -186,27 +207,80 @@ export function DaySummary({ entries, categories, dayStart, dayEnd, nowDate }: P
         </div>
       </div>
 
-      {/* By type */}
+      {/* By type — expandable */}
       {typeRows.length > 0 && (
-        <div className="flex flex-col gap-3.5">
-          <h3 className="m-0 text-[13px] font-semibold text-[var(--muted-foreground)] uppercase tracking-[0.06em]">По типу</h3>
-          {typeRows.map(row => (
-            <div key={row.kind} className="flex flex-col gap-1.5">
-              <div className="flex items-baseline gap-2">
-                <span className="font-medium">{row.name}</span>
-                <span className="text-xs text-[var(--muted-foreground)] truncate">{row.hint}</span>
-                <span className="ml-auto shrink-0 font-mono text-[13px]">{formatDur(row.total)}</span>
-                <span className="shrink-0 w-10 text-right font-mono text-xs text-[var(--muted-foreground)]">
-                  {Math.round((row.total / (trackedMinutes || 1)) * 100)}%
-                </span>
+        <div className="flex flex-col gap-1">
+          <h3 className="m-0 mb-2.5 text-[13px] font-semibold text-[var(--muted-foreground)] uppercase tracking-[0.06em]">По типу</h3>
+          {typeRows.map(row => {
+            const isOpen = expanded.has(row.kind)
+            return (
+              <div key={row.kind} className="flex flex-col">
+                {/* Type row header */}
+                <button
+                  onClick={() => row.catRows.length > 1 && toggleExpanded(row.kind)}
+                  className="flex items-center gap-2 w-full text-left py-1.5 rounded-lg hover:bg-[var(--muted)] px-2 -mx-2 transition-colors"
+                  style={{ cursor: row.catRows.length > 1 ? 'pointer' : 'default' }}
+                  aria-expanded={isOpen}
+                >
+                  {/* Chevron */}
+                  <svg
+                    width="14" height="14"
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                    className="shrink-0 text-[var(--muted-foreground)] transition-transform duration-150"
+                    style={{
+                      transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                      opacity: row.catRows.length > 1 ? 1 : 0,
+                    }}
+                    aria-hidden="true"
+                  >
+                    <path d="m9 18 6-6-6-6"/>
+                  </svg>
+
+                  <span className="font-medium text-sm flex-1 truncate">{row.name}</span>
+                  <span className="text-xs text-[var(--muted-foreground)] truncate max-w-[120px] hidden sm:block">{row.hint}</span>
+                  <span className="ml-auto shrink-0 font-mono text-[13px]">{formatDur(row.total)}</span>
+                  <span className="shrink-0 w-9 text-right font-mono text-xs text-[var(--muted-foreground)]">
+                    {Math.round((row.total / (trackedMinutes || 1)) * 100)}%
+                  </span>
+                </button>
+
+                {/* Combined progress bar */}
+                <div className="h-1.5 rounded-full bg-[var(--muted)] flex gap-px overflow-hidden mx-6 mb-1">
+                  {row.segs.map((seg, i) => (
+                    <div key={i} style={{ width: `${seg.pct}%`, background: seg.color, height: '100%' }} />
+                  ))}
+                </div>
+
+                {/* Expanded: individual categories */}
+                {isOpen && row.catRows.length > 0 && (
+                  <div className="flex flex-col gap-0.5 mt-1 mb-2 ml-6 pl-3 border-l-2 border-[var(--border)]">
+                    {row.catRows.map(({ cat, mins }) => {
+                      const pct = Math.round((mins / (trackedMinutes || 1)) * 100)
+                      const barW = (mins / (trackedMinutes || 1)) * 100
+                      return (
+                        <div key={cat.id} className="flex flex-col gap-0.5 py-1">
+                          <div className="flex items-center gap-2">
+                            <span
+                              aria-hidden="true"
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{ background: cat.color }}
+                            />
+                            <span className="text-sm flex-1 truncate">{cat.name}</span>
+                            <span className="font-mono text-[13px] shrink-0">{formatDur(mins)}</span>
+                            <span className="shrink-0 w-9 text-right font-mono text-xs text-[var(--muted-foreground)]">{pct}%</span>
+                          </div>
+                          <div className="h-1 rounded-full bg-[var(--muted)] overflow-hidden ml-4">
+                            <div style={{ width: `${barW}%`, height: '100%', background: cat.color }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
-              <div className="h-2 rounded-full bg-[var(--muted)] flex gap-px overflow-hidden">
-                {row.segs.map((seg, i) => (
-                  <div key={i} style={{ width: `${seg.pct}%`, background: seg.color, height: '100%' }} />
-                ))}
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
