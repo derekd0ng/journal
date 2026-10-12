@@ -108,11 +108,16 @@ export function DesktopSidebar() {
       </div>
 
       {/* Footer */}
-      {!collapsed && (
-        <p className="mt-auto px-3 text-xs text-[var(--muted-foreground)]">
-          Данные хранятся только в этом браузере
+      <div className="mt-auto flex flex-col gap-1">
+        {!collapsed && (
+          <p className="px-3 text-xs text-[var(--muted-foreground)]">
+            Данные хранятся только в этом браузере
+          </p>
+        )}
+        <p className={`px-3 text-xs font-mono text-[var(--muted-foreground)] opacity-50 ${collapsed ? 'text-center' : ''}`}>
+          v0.0.10
         </p>
-      )}
+      </div>
     </nav>
   )
 }
