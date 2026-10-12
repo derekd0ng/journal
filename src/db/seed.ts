@@ -11,7 +11,7 @@ const CATEGORIES: Omit<Category, 'created_at' | 'updated_at'>[] = [
   { id: 'cat-sport',   name: 'Спорт',          color: '#ef4444', kind: 'productive',  sort_order: 6,  archived: false },
   { id: 'cat-social',  name: 'Общение',        color: '#ec4899', kind: 'rest',        sort_order: 7,  archived: false },
   { id: 'cat-leisure', name: 'Развлечения',    color: '#a855f7', kind: 'leisure',     sort_order: 8,  archived: false },
-  { id: 'cat-other',   name: 'Прочее',         color: '#94a3b8', kind: 'rest',        sort_order: 9,  archived: false },
+  { id: 'cat-other',   name: 'Прочее',         color: '#94a3b8', kind: 'other',       sort_order: 9,  archived: false },
 ]
 
 const ACTIVITIES: Omit<Activity, 'created_at' | 'updated_at'>[] = [

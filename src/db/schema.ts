@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie'
 
-export type CategoryKind = 'productive' | 'maintenance' | 'rest' | 'leisure'
+export type CategoryKind = 'productive' | 'maintenance' | 'rest' | 'leisure' | 'other'
 export type TaskStatus = 'open' | 'done' | 'skipped'
 export type HabitScheduleType = 'daily' | 'days_of_week' | 'times_per_week'
 export type HabitCheckStatus = 'done' | 'skipped'
@@ -111,6 +111,18 @@ export class DayLogDB extends Dexie {
       settings: 'id',
     }).upgrade(tx =>
       tx.table('settings').toCollection().modify({ day_start_hour: 0 })
+    )
+    // v3: introduce kind='other'; re-classify the seed "Прочее" category
+    this.version(3).stores({
+      categories: 'id, kind, sort_order, archived',
+      activities: 'id, category_id, sort_order, archived',
+      time_entries: 'id, started_at, ended_at, activity_id, category_id',
+      tasks: 'id, scheduled_date, week_start, status',
+      habits: 'id, schedule_type, archived_at',
+      habit_checks: 'id, habit_id, date, [habit_id+date]',
+      settings: 'id',
+    }).upgrade(tx =>
+      tx.table('categories').where('id').equals('cat-other').modify({ kind: 'other' })
     )
   }
 }

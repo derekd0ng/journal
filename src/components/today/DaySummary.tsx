@@ -16,8 +16,9 @@ const TYPE_LABELS: Record<CategoryKind, { name: string; hint: string }> = {
   maintenance: { name: 'Поддержание', hint: 'еда, быт, дорога, спорт' },
   rest: { name: 'Отдых', hint: 'сон' },
   leisure: { name: 'Досуг', hint: 'общение, развлечения' },
+  other: { name: 'Другое', hint: 'прочее' },
 }
-const TYPE_ORDER: CategoryKind[] = ['productive', 'maintenance', 'rest', 'leisure']
+const TYPE_ORDER: CategoryKind[] = ['productive', 'maintenance', 'rest', 'leisure', 'other']
 
 const HATCH = 'repeating-linear-gradient(135deg, color-mix(in oklab, var(--muted-foreground) 40%, transparent) 0 1.5px, transparent 1.5px 5px)'
 
