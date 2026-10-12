@@ -115,7 +115,7 @@ export function DesktopSidebar() {
           </p>
         )}
         <p className={`px-3 text-xs font-mono text-[var(--muted-foreground)] opacity-50 ${collapsed ? 'text-center' : ''}`}>
-          v0.0.10
+          v0.0.11
         </p>
       </div>
     </nav>
