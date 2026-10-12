@@ -72,6 +72,7 @@ export function GapBlock({ startMs, endMs, topPx, heightPx, timezone, onClick, v
 }
 
 function formatDuration(mins: number): string {
+  mins = Math.round(mins)
   const h = Math.floor(mins / 60)
   const m = mins % 60
   if (h === 0) return `${m}м`

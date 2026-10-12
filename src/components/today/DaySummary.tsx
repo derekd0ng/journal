@@ -116,25 +116,43 @@ export function DaySummary({ entries, categories, dayStart, dayEnd, nowDate }: P
                 <div className="flex gap-0.5">
                   {[cell0, cell1].map((cell, j) => {
                     if (!cell) return null
-                    const catColor = cell.categoryId ? (catMap.get(cell.categoryId)?.color ?? '#94a3b8') : undefined
+                    const endH = j === 0 ? h : (h + 1) % 24
+                    const pad = (n: number) => String(n).padStart(2, '0')
+                    const tooltipLabel = `${pad(h)}:${j === 0 ? '00' : '30'}–${pad(endH)}:${j === 0 ? '30' : '00'}`
+                    const allFuture = cell.fills.every(f => f.kind === 'future')
                     return (
                       <div
                         key={j}
-                        title={`${String(h).padStart(2, '0')}:${j === 0 ? '00' : '30'}–${String(h).padStart(2, '0')}:${j === 0 ? '30' : '00 (след.)'}`}
-                        className="flex-1 rounded-[4px] box-border"
+                        title={tooltipLabel}
+                        className="flex-1 rounded-[4px] box-border overflow-hidden"
                         style={{
                           height: 26,
-                          background: cell.kind === 'activity' && catColor
-                            ? catColor
-                            : cell.kind === 'gap'
-                            ? `var(--muted)`
-                            : undefined,
-                          backgroundImage: cell.kind === 'gap' ? HATCH : undefined,
-                          border: cell.kind === 'future' ? '1px dashed var(--border)' : undefined,
+                          display: 'flex',
+                          border: allFuture ? '1px dashed var(--border)' : undefined,
                           outline: cell.isCurrent ? '2px solid var(--foreground)' : undefined,
                           outlineOffset: cell.isCurrent ? 1 : undefined,
                         }}
-                      />
+                      >
+                        {!allFuture && cell.fills.map((fill, fi) => {
+                          const catColor = fill.categoryId ? (catMap.get(fill.categoryId)?.color ?? '#94a3b8') : undefined
+                          return (
+                            <div
+                              key={fi}
+                              style={{
+                                width: `${fill.pct}%`,
+                                height: '100%',
+                                flexShrink: 0,
+                                background: fill.kind === 'activity' && catColor
+                                  ? catColor
+                                  : fill.kind === 'future'
+                                  ? 'transparent'
+                                  : 'var(--muted)',
+                                backgroundImage: fill.kind === 'gap' ? HATCH : undefined,
+                              }}
+                            />
+                          )
+                        })}
+                      </div>
                     )
                   })}
                 </div>

@@ -1,9 +1,16 @@
 import { parseISO } from 'date-fns'
 
-export interface GridCell {
+export interface GridCellFill {
   kind: 'activity' | 'gap' | 'future'
   categoryId: string | undefined
+  pct: number  // 0–100, fraction of the 30-min slot
+}
+
+export interface GridCell {
+  kind: 'activity' | 'gap' | 'future'   // dominant kind
+  categoryId: string | undefined          // dominant category
   isCurrent: boolean
+  fills: GridCellFill[]                   // ordered segments summing to ≈100
 }
 
 export interface DaySummaryData {
@@ -29,16 +36,23 @@ export function buildDaySummary(
   const clampedNow = Math.min(nowMs, dayEndMs)
   const elapsedMs = Math.max(0, clampedNow - dayStartMs)
 
+  // Parse entries once
+  const parsed = entries.map(e => ({
+    s: parseISO(e.started_at).getTime(),
+    e: parseISO(e.ended_at).getTime(),
+    catId: e.category_id,
+  }))
+
   let trackedMs = 0
   const byCategoryMinutes = new Map<string | undefined, number>()
 
-  for (const e of entries) {
-    const s = Math.max(parseISO(e.started_at).getTime(), dayStartMs)
-    const end = Math.min(parseISO(e.ended_at).getTime(), clampedNow)
+  for (const p of parsed) {
+    const s = Math.max(p.s, dayStartMs)
+    const end = Math.min(p.e, clampedNow)
     if (end <= s) continue
     const durMin = (end - s) / 60_000
     trackedMs += end - s
-    byCategoryMinutes.set(e.category_id, (byCategoryMinutes.get(e.category_id) ?? 0) + durMin)
+    byCategoryMinutes.set(p.catId, (byCategoryMinutes.get(p.catId) ?? 0) + durMin)
   }
 
   const trackedMinutes = trackedMs / 60_000
@@ -52,38 +66,50 @@ export function buildDaySummary(
     const slotStart = dayStartMs + i * SLOT_MS
     const slotEnd = slotStart + SLOT_MS
     const isCurrent = elapsedMs > 0 && nowMs >= slotStart && nowMs < slotEnd
-
-    if (slotStart >= clampedNow && !isCurrent) {
-      grid.push({ kind: 'future', categoryId: undefined, isCurrent: false })
-      continue
-    }
-
-    // Effective end of the slot for coverage calculation
     const effectiveEnd = Math.min(slotEnd, clampedNow)
-    const slotSpan = effectiveEnd - slotStart
-    if (slotSpan <= 0) {
-      grid.push({ kind: isCurrent ? 'gap' : 'future', categoryId: undefined, isCurrent })
-      continue
-    }
 
-    let bestEntry: (typeof entries)[0] | null = null
-    let bestOverlap = 0
+    const fills: GridCellFill[] = []
 
-    for (const e of entries) {
-      const es = parseISO(e.started_at).getTime()
-      const ee = parseISO(e.ended_at).getTime()
-      const overlap = Math.min(ee, effectiveEnd) - Math.max(es, slotStart)
-      if (overlap > bestOverlap) {
-        bestOverlap = overlap
-        bestEntry = e
+    if (effectiveEnd > slotStart) {
+      // Find all entries overlapping [slotStart, effectiveEnd], clipped and sorted
+      const relevant = parsed
+        .map(p => ({ s: Math.max(p.s, slotStart), e: Math.min(p.e, effectiveEnd), catId: p.catId }))
+        .filter(p => p.e > p.s)
+        .sort((a, b) => a.s - b.s)
+
+      let cursor = slotStart
+      for (const r of relevant) {
+        if (r.s > cursor) {
+          fills.push({ kind: 'gap', categoryId: undefined, pct: (r.s - cursor) / SLOT_MS * 100 })
+        }
+        fills.push({ kind: 'activity', categoryId: r.catId, pct: (r.e - r.s) / SLOT_MS * 100 })
+        cursor = r.e
+      }
+      if (cursor < effectiveEnd) {
+        fills.push({ kind: 'gap', categoryId: undefined, pct: (effectiveEnd - cursor) / SLOT_MS * 100 })
       }
     }
 
-    if (bestEntry && bestOverlap * 2 >= slotSpan) {
-      grid.push({ kind: 'activity', categoryId: bestEntry.category_id, isCurrent })
-    } else {
-      grid.push({ kind: 'gap', categoryId: undefined, isCurrent })
+    if (effectiveEnd < slotEnd) {
+      fills.push({ kind: 'future', categoryId: undefined, pct: (slotEnd - effectiveEnd) / SLOT_MS * 100 })
     }
+
+    // Derive dominant kind + categoryId from fills (preserves existing test expectations)
+    let kind: GridCell['kind'] = 'future'
+    let categoryId: string | undefined
+    const elapsed = fills.filter(f => f.kind !== 'future')
+    if (elapsed.length > 0) {
+      const elapsedPct = elapsed.reduce((s, f) => s + f.pct, 0)
+      const best = elapsed.filter(f => f.kind === 'activity').sort((a, b) => b.pct - a.pct)[0]
+      if (best && best.pct * 2 >= elapsedPct) {
+        kind = 'activity'
+        categoryId = best.categoryId
+      } else {
+        kind = 'gap'
+      }
+    }
+
+    grid.push({ kind, categoryId, isCurrent, fills })
   }
 
   return { trackedMinutes, untrackedMinutes, remainingMinutes, byCategoryMinutes, grid }
