@@ -80,7 +80,7 @@ export function TimeEntrySheet({
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col justify-end">
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative bg-[var(--background)] rounded-t-2xl max-h-[85dvh] flex flex-col shadow-2xl">
         {/* Ручка */}
