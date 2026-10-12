@@ -218,7 +218,7 @@ export function DaySummary({ entries, categories, dayStart, dayEnd, nowDate }: P
               const barW = (untrackedMinutes / (elapsedMinutes || 1)) * 100
               return (
                 <div key="__untracked__" className="flex flex-col">
-                  <div className="flex items-center gap-2 py-1.5 px-2 -mx-2">
+                  <div className="flex items-center gap-2 w-full py-1.5 px-2 -mx-2">
                     <svg width="14" height="14" aria-hidden="true" style={{ opacity: 0 }} />
                     <span className="font-medium text-sm flex-1 text-[var(--muted-foreground)]">Не учтено</span>
                     <span className="ml-auto shrink-0 font-mono text-[13px] text-[var(--muted-foreground)]">{formatDur(untrackedMinutes)}</span>
