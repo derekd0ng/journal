@@ -302,7 +302,7 @@ export function Today() {
 
   // ── Mobile layout ───────────────────────────────────────────
   return (
-    <div className="flex flex-col min-h-dvh">
+    <div className="flex flex-col h-full">
       <header className="px-4 pt-5 pb-3 shrink-0">
         <h1 className="text-xl font-bold capitalize">{dayTitle}</h1>
       </header>
@@ -317,7 +317,7 @@ export function Today() {
         />
       )}
 
-      <div className="flex-1 overflow-y-auto pb-4">
+      <div className="flex-1 overflow-y-auto pb-20">
         <DayTimeline
           entries={sortedEntries}
           dayStart={dayBounds.start}
