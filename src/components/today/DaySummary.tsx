@@ -52,8 +52,9 @@ export function DaySummary({ entries, categories, dayStart, dayEnd, nowDate }: P
   )
 
   const { trackedMinutes, untrackedMinutes, remainingMinutes, byCategoryMinutes, grid } = summary
+  const elapsedMinutes = trackedMinutes + untrackedMinutes
 
-  // By-type rows
+  // By-type rows — % and bar widths relative to elapsed (not just tracked)
   const typeRows = TYPE_ORDER.map(kind => {
     const kindCats = categories.filter(c => c.kind === kind && !c.archived)
     const total = kindCats.reduce((sum, c) => sum + (byCategoryMinutes.get(c.id) ?? 0), 0)
@@ -63,7 +64,7 @@ export function DaySummary({ entries, categories, dayStart, dayEnd, nowDate }: P
       .join(', ') || TYPE_LABELS[kind].hint
     const segs = kindCats
       .filter(c => byCategoryMinutes.get(c.id))
-      .map(c => ({ color: c.color, pct: ((byCategoryMinutes.get(c.id) ?? 0) / (trackedMinutes || 1)) * 100 }))
+      .map(c => ({ color: c.color, pct: ((byCategoryMinutes.get(c.id) ?? 0) / (elapsedMinutes || 1)) * 100 }))
     const catRows = kindCats
       .filter(c => (byCategoryMinutes.get(c.id) ?? 0) > 0)
       .map(c => ({ cat: c, mins: byCategoryMinutes.get(c.id) ?? 0 }))
@@ -211,15 +212,33 @@ export function DaySummary({ entries, categories, dayStart, dayEnd, nowDate }: P
       {typeRows.length > 0 && (
         <div className="flex flex-col gap-1">
           <h3 className="m-0 mb-2.5 text-[13px] font-semibold text-[var(--muted-foreground)] uppercase tracking-[0.06em]">По типу</h3>
-          {typeRows.map(row => {
-            const isOpen = expanded.has(row.kind)
+          {[...typeRows, ...(untrackedMinutes >= 1 ? [{ kind: '__untracked__' as const }] : [])].map(row => {
+            if (row.kind === '__untracked__') {
+              const pct = Math.round((untrackedMinutes / (elapsedMinutes || 1)) * 100)
+              const barW = (untrackedMinutes / (elapsedMinutes || 1)) * 100
+              return (
+                <div key="__untracked__" className="flex flex-col">
+                  <div className="flex items-center gap-2 py-1.5 px-2 -mx-2">
+                    <svg width="14" height="14" aria-hidden="true" style={{ opacity: 0 }} />
+                    <span className="font-medium text-sm flex-1 text-[var(--muted-foreground)]">Не учтено</span>
+                    <span className="ml-auto shrink-0 font-mono text-[13px] text-[var(--muted-foreground)]">{formatDur(untrackedMinutes)}</span>
+                    <span className="shrink-0 w-9 text-right font-mono text-xs text-[var(--muted-foreground)]">{pct}%</span>
+                  </div>
+                  <div className="h-1.5 rounded-full overflow-hidden mx-6 mb-1" style={{ background: 'var(--muted)' }}>
+                    <div style={{ width: `${barW}%`, height: '100%', backgroundImage: HATCH, background: 'color-mix(in oklab, var(--muted-foreground) 35%, var(--muted))' }} />
+                  </div>
+                </div>
+              )
+            }
+            const typedRow = row as typeof typeRows[0]
+            const isOpen = expanded.has(typedRow.kind)
             return (
-              <div key={row.kind} className="flex flex-col">
+              <div key={typedRow.kind} className="flex flex-col">
                 {/* Type row header */}
                 <button
-                  onClick={() => row.catRows.length > 1 && toggleExpanded(row.kind)}
+                  onClick={() => typedRow.catRows.length > 1 && toggleExpanded(typedRow.kind)}
                   className="flex items-center gap-2 w-full text-left py-1.5 rounded-lg hover:bg-[var(--muted)] px-2 -mx-2 transition-colors"
-                  style={{ cursor: row.catRows.length > 1 ? 'pointer' : 'default' }}
+                  style={{ cursor: typedRow.catRows.length > 1 ? 'pointer' : 'default' }}
                   aria-expanded={isOpen}
                 >
                   {/* Chevron */}
@@ -230,34 +249,34 @@ export function DaySummary({ entries, categories, dayStart, dayEnd, nowDate }: P
                     className="shrink-0 text-[var(--muted-foreground)] transition-transform duration-150"
                     style={{
                       transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
-                      opacity: row.catRows.length > 1 ? 1 : 0,
+                      opacity: typedRow.catRows.length > 1 ? 1 : 0,
                     }}
                     aria-hidden="true"
                   >
                     <path d="m9 18 6-6-6-6"/>
                   </svg>
 
-                  <span className="font-medium text-sm flex-1 truncate">{row.name}</span>
-                  <span className="text-xs text-[var(--muted-foreground)] truncate max-w-[120px] hidden sm:block">{row.hint}</span>
-                  <span className="ml-auto shrink-0 font-mono text-[13px]">{formatDur(row.total)}</span>
+                  <span className="font-medium text-sm flex-1 truncate">{typedRow.name}</span>
+                  <span className="text-xs text-[var(--muted-foreground)] truncate max-w-[120px] hidden sm:block">{typedRow.hint}</span>
+                  <span className="ml-auto shrink-0 font-mono text-[13px]">{formatDur(typedRow.total)}</span>
                   <span className="shrink-0 w-9 text-right font-mono text-xs text-[var(--muted-foreground)]">
-                    {Math.round((row.total / (trackedMinutes || 1)) * 100)}%
+                    {Math.round((typedRow.total / (elapsedMinutes || 1)) * 100)}%
                   </span>
                 </button>
 
                 {/* Combined progress bar */}
                 <div className="h-1.5 rounded-full bg-[var(--muted)] flex gap-px overflow-hidden mx-6 mb-1">
-                  {row.segs.map((seg, i) => (
+                  {typedRow.segs.map((seg, i) => (
                     <div key={i} style={{ width: `${seg.pct}%`, background: seg.color, height: '100%' }} />
                   ))}
                 </div>
 
                 {/* Expanded: individual categories */}
-                {isOpen && row.catRows.length > 0 && (
+                {isOpen && typedRow.catRows.length > 0 && (
                   <div className="flex flex-col gap-0.5 mt-1 mb-2 ml-6 pl-3 border-l-2 border-[var(--border)]">
-                    {row.catRows.map(({ cat, mins }) => {
-                      const pct = Math.round((mins / (trackedMinutes || 1)) * 100)
-                      const barW = (mins / (trackedMinutes || 1)) * 100
+                    {typedRow.catRows.map(({ cat, mins }) => {
+                      const pct = Math.round((mins / (elapsedMinutes || 1)) * 100)
+                      const barW = (mins / (elapsedMinutes || 1)) * 100
                       return (
                         <div key={cat.id} className="flex flex-col gap-0.5 py-1">
                           <div className="flex items-center gap-2">
