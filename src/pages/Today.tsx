@@ -146,23 +146,25 @@ export function Today() {
         />
       </div>
 
-      {/* Форма добавления/редактирования */}
-      <TimeEntrySheet
-        open={sheet.open}
-        onClose={() => setSheet(s => ({ ...s, open: false }))}
-        initialStartISO={sheet.startISO}
-        initialEndISO={sheet.endISO}
-        entry={sheet.entry}
-        activities={allActivities}
-        categoryMap={categoryMap}
-        timezone={tz}
-        onSave={data => saveEntry(data, sheet.entry?.id)}
-        onDelete={sheet.entry ? async () => {
-          const id = sheet.entry?.id
-          if (id) await deleteTimeEntry(id)
-          setSheet(s => ({ ...s, open: false }))
-        } : undefined}
-      />
+      {/* Форма добавления/редактирования — монтируется только когда открыта */}
+      {sheet.open && (
+        <TimeEntrySheet
+          open
+          onClose={() => setSheet(s => ({ ...s, open: false }))}
+          initialStartISO={sheet.startISO}
+          initialEndISO={sheet.endISO}
+          entry={sheet.entry}
+          activities={allActivities}
+          categoryMap={categoryMap}
+          timezone={tz}
+          onSave={data => saveEntry(data, sheet.entry?.id)}
+          onDelete={sheet.entry ? async () => {
+            const id = sheet.entry?.id
+            if (id) await deleteTimeEntry(id)
+            setSheet(s => ({ ...s, open: false }))
+          } : undefined}
+        />
+      )}
 
       {/* Диалог конфликта */}
       {conflict && (
