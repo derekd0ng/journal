@@ -146,6 +146,15 @@ export function Today() {
         />
       </div>
 
+      {/* FAB — добавить запись */}
+      <button
+        onClick={() => openNewSheet(lastGapStartISO, toUTCString(nowDate))}
+        className="fixed bottom-20 right-4 z-50 w-14 h-14 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] text-2xl shadow-lg flex items-center justify-center active:scale-95 transition-transform"
+        aria-label="Добавить запись"
+      >
+        +
+      </button>
+
       {/* Форма добавления/редактирования — монтируется только когда открыта */}
       {sheet.open && (
         <TimeEntrySheet

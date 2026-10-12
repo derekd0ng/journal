@@ -14,7 +14,7 @@ interface Props {
 
 export function TimeBlock({ entry, topPx, heightPx, timezone, category, activity, onClick }: Props) {
   const color = category?.color ?? '#94a3b8'
-  const label = activity?.name ?? category?.name ?? '—'
+  const label = activity?.name ?? entry.note ?? category?.name ?? '—'
   const startStr = toTimeString(parseUTC(entry.started_at), timezone)
   const endStr = toTimeString(parseUTC(entry.ended_at), timezone)
   const mins = durationMinutes(entry.started_at, entry.ended_at)

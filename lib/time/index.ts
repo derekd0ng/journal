@@ -70,6 +70,17 @@ export function toTimeString(date: Date, timezone: string): string {
   return format(toZonedTime(date, timezone), 'HH:mm')
 }
 
+/** Применяет локальное время HH:MM к базовой ISO-дате, возвращает новую UTC ISO */
+export function applyLocalTime(baseISO: string, localHHMM: string, timezone: string): string {
+  const parts = localHHMM.split(':')
+  const hours = parseInt(parts[0] ?? '', 10)
+  const minutes = parseInt(parts[1] ?? '', 10)
+  if (isNaN(hours) || isNaN(minutes)) return baseISO
+  const zonedDate = toZonedTime(parseISO(baseISO), timezone)
+  zonedDate.setHours(hours, minutes, 0, 0)
+  return fromZonedTime(zonedDate, timezone).toISOString()
+}
+
 /** Длительность интервала в минутах */
 export function durationMinutes(startedAt: string, endedAt: string): number {
   return (parseISO(endedAt).getTime() - parseISO(startedAt).getTime()) / 60_000

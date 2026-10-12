@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { toTimeString, toUTCString, parseUTC } from 'lib/time'
+import { toTimeString, toUTCString, parseUTC, applyLocalTime } from 'lib/time'
 import { addMinutes } from 'date-fns'
 import { cn } from '@/lib/utils'
 import type { TimeEntry, Activity, Category } from '@/db/schema'
@@ -9,7 +9,7 @@ interface Props {
   onClose: () => void
   initialStartISO: string
   initialEndISO: string
-  entry?: TimeEntry          // если редактирование
+  entry?: TimeEntry
   activities: Activity[]
   categoryMap: Map<string, Category>
   timezone: string
@@ -22,6 +22,7 @@ export interface EntryData {
   ended_at: string
   activity_id?: string
   category_id?: string
+  note?: string
   intentional?: boolean
 }
 
@@ -34,6 +35,7 @@ export function TimeEntrySheet({
   const [selectedActivityId, setSelectedActivityId] = useState<string | undefined>(entry?.activity_id)
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>(entry?.category_id)
   const [intentional, setIntentional] = useState<boolean | undefined>(entry?.intentional)
+  const [note, setNote] = useState(entry?.note ?? '')
 
   useEffect(() => {
     if (open) {
@@ -42,6 +44,7 @@ export function TimeEntrySheet({
       setSelectedActivityId(entry?.activity_id)
       setSelectedCategoryId(entry?.category_id)
       setIntentional(entry?.intentional)
+      setNote(entry?.note ?? '')
     }
   }, [open, initialStartISO, initialEndISO, entry])
 
@@ -50,7 +53,9 @@ export function TimeEntrySheet({
   const effectiveCategory = effectiveCategoryId ? categoryMap.get(effectiveCategoryId) : undefined
   const isLeisure = effectiveCategory?.kind === 'leisure'
 
-  function adjust(field: 'start' | 'end', deltaMin: number) {
+  const canSave = Boolean(selectedActivityId ?? effectiveCategoryId ?? note.trim())
+
+  function adjustTime(field: 'start' | 'end', deltaMin: number) {
     if (field === 'start') {
       setStartISO(iso => toUTCString(addMinutes(parseUTC(iso), deltaMin)))
     } else {
@@ -59,12 +64,13 @@ export function TimeEntrySheet({
   }
 
   function handleSave() {
-    if (!effectiveCategoryId && !selectedActivityId) return
+    if (!canSave) return
     onSave({
       started_at: startISO,
       ended_at: endISO,
       activity_id: selectedActivityId,
       category_id: effectiveCategoryId,
+      note: note.trim() || undefined,
       intentional: isLeisure ? intentional : undefined,
     })
   }
@@ -82,7 +88,7 @@ export function TimeEntrySheet({
   return (
     <div className="fixed inset-0 z-[60] flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-[var(--background)] rounded-t-2xl max-h-[85dvh] flex flex-col shadow-2xl">
+      <div className="relative bg-[var(--background)] rounded-t-2xl max-h-[90dvh] flex flex-col shadow-2xl">
         {/* Ручка */}
         <div className="flex justify-center pt-3 pb-1 shrink-0">
           <div className="w-10 h-1 rounded-full bg-[var(--border)]" />
@@ -90,7 +96,7 @@ export function TimeEntrySheet({
 
         <div className="px-4 pt-1 pb-2 shrink-0">
           <h2 className="text-base font-semibold">
-            {entry ? 'Редактировать' : 'Новая запись'}
+            {entry ? 'Редактировать запись' : 'Новая запись'}
           </h2>
         </div>
 
@@ -101,13 +107,27 @@ export function TimeEntrySheet({
               label="Начало"
               iso={startISO}
               timezone={timezone}
-              onAdjust={d => adjust('start', d)}
+              onAdjust={d => adjustTime('start', d)}
+              onTimeChange={t => setStartISO(applyLocalTime(startISO, t, timezone))}
             />
             <TimeField
               label="Конец"
               iso={endISO}
               timezone={timezone}
-              onAdjust={d => adjust('end', d)}
+              onAdjust={d => adjustTime('end', d)}
+              onTimeChange={t => setEndISO(applyLocalTime(endISO, t, timezone))}
+            />
+          </div>
+
+          {/* Свободное название */}
+          <div>
+            <p className="text-xs text-[var(--muted-foreground)] mb-1.5">Название</p>
+            <input
+              type="text"
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder="Что делал?"
+              className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--background)] text-sm placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
             />
           </div>
 
@@ -139,7 +159,7 @@ export function TimeEntrySheet({
 
           {/* Выбор активности */}
           <div>
-            <p className="text-xs text-[var(--muted-foreground)] mb-1.5">Активность</p>
+            <p className="text-xs text-[var(--muted-foreground)] mb-1.5">Категория / активность</p>
             <div className="space-y-2">
               {Array.from(grouped.entries()).map(([catId, acts]) => {
                 const cat = categoryMap.get(catId)
@@ -154,8 +174,13 @@ export function TimeEntrySheet({
                         <button
                           key={a.id}
                           onClick={() => {
-                            setSelectedActivityId(a.id)
-                            setSelectedCategoryId(a.category_id)
+                            if (selectedActivityId === a.id) {
+                              setSelectedActivityId(undefined)
+                              setSelectedCategoryId(undefined)
+                            } else {
+                              setSelectedActivityId(a.id)
+                              setSelectedCategoryId(a.category_id)
+                            }
                           }}
                           className={cn(
                             'px-3 py-1.5 rounded-full text-sm border transition-colors',
@@ -188,7 +213,7 @@ export function TimeEntrySheet({
           )}
           <button
             onClick={handleSave}
-            disabled={!effectiveCategoryId && !selectedActivityId}
+            disabled={!canSave}
             className="flex-1 py-3 rounded-xl bg-[var(--primary)] text-[var(--primary-foreground)] text-sm font-semibold active:opacity-70 disabled:opacity-40"
           >
             Сохранить
@@ -200,31 +225,35 @@ export function TimeEntrySheet({
 }
 
 function TimeField({
-  label, iso, timezone, onAdjust,
+  label, iso, timezone, onAdjust, onTimeChange,
 }: {
   label: string
   iso: string
   timezone: string
   onAdjust: (deltaMin: number) => void
+  onTimeChange: (localHHMM: string) => void
 }) {
   return (
     <div>
       <p className="text-xs text-[var(--muted-foreground)] mb-1">{label}</p>
-      <div className="flex items-center gap-1">
+      <input
+        type="time"
+        value={toTimeString(parseUTC(iso), timezone)}
+        onChange={e => onTimeChange(e.target.value)}
+        className="w-full px-2 py-2 rounded-xl border border-[var(--border)] bg-[var(--background)] text-sm font-mono text-center focus:outline-none focus:ring-2 focus:ring-[var(--ring)] mb-1.5"
+      />
+      <div className="flex gap-1">
         <button
           onClick={() => onAdjust(-15)}
-          className="w-8 h-8 flex items-center justify-center rounded-lg border border-[var(--border)] text-sm active:opacity-70"
+          className="flex-1 py-1 rounded-lg border border-[var(--border)] text-xs text-[var(--muted-foreground)] active:opacity-70"
         >
-          −
+          −15м
         </button>
-        <span className="flex-1 text-center text-base font-mono font-medium">
-          {toTimeString(parseUTC(iso), timezone)}
-        </span>
         <button
           onClick={() => onAdjust(+15)}
-          className="w-8 h-8 flex items-center justify-center rounded-lg border border-[var(--border)] text-sm active:opacity-70"
+          className="flex-1 py-1 rounded-lg border border-[var(--border)] text-xs text-[var(--muted-foreground)] active:opacity-70"
         >
-          +
+          +15м
         </button>
       </div>
     </div>
