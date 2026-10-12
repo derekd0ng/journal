@@ -70,6 +70,18 @@ export function toTimeString(date: Date, timezone: string): string {
   return format(toZonedTime(date, timezone), 'HH:mm')
 }
 
+/** Применяет локальную дату YYYY-MM-DD к базовой ISO-дате, сохраняя время */
+export function applyLocalDate(baseISO: string, localYYYYMMDD: string, timezone: string): string {
+  const parts = localYYYYMMDD.split('-')
+  const year = parseInt(parts[0] ?? '', 10)
+  const month = parseInt(parts[1] ?? '', 10) - 1
+  const day = parseInt(parts[2] ?? '', 10)
+  if (isNaN(year) || isNaN(month) || isNaN(day)) return baseISO
+  const zonedDate = toZonedTime(parseISO(baseISO), timezone)
+  zonedDate.setFullYear(year, month, day)
+  return fromZonedTime(zonedDate, timezone).toISOString()
+}
+
 /** Применяет локальное время HH:MM к базовой ISO-дате, возвращает новую UTC ISO */
 export function applyLocalTime(baseISO: string, localHHMM: string, timezone: string): string {
   const parts = localHHMM.split(':')

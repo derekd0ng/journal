@@ -35,7 +35,7 @@ const ACTIVITIES: Omit<Activity, 'created_at' | 'updated_at'>[] = [
 const DEFAULT_SETTINGS: Settings = {
   id: 1,
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Moscow',
-  day_start_hour: 4,
+  day_start_hour: 0,
   updated_at: new Date().toISOString(),
 }
 

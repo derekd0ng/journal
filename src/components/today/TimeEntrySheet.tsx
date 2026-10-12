@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { toTimeString, toUTCString, parseUTC, applyLocalTime } from 'lib/time'
+import { toTimeString, toDayDateString, toUTCString, parseUTC, applyLocalTime, applyLocalDate } from 'lib/time'
 import { addMinutes } from 'date-fns'
 import { cn } from '@/lib/utils'
 import type { TimeEntry, Activity, Category } from '@/db/schema'
@@ -101,6 +101,21 @@ export function TimeEntrySheet({
         </div>
 
         <div className="overflow-y-auto flex-1 px-4 pb-4 space-y-4">
+          {/* Дата */}
+          <div>
+            <p className="text-xs text-[var(--muted-foreground)] mb-1.5">Дата</p>
+            <input
+              type="date"
+              value={toDayDateString(parseUTC(startISO), timezone)}
+              onChange={e => {
+                const d = e.target.value
+                setStartISO(prev => applyLocalDate(prev, d, timezone))
+                setEndISO(prev => applyLocalDate(prev, d, timezone))
+              }}
+              className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+            />
+          </div>
+
           {/* Время */}
           <div className="grid grid-cols-2 gap-3">
             <TimeField

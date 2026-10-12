@@ -100,6 +100,18 @@ export class DayLogDB extends Dexie {
       habit_checks: 'id, habit_id, date, [habit_id+date]',
       settings: 'id',
     })
+    // v2: reset day_start_hour to 0 (midnight-to-midnight)
+    this.version(2).stores({
+      categories: 'id, kind, sort_order, archived',
+      activities: 'id, category_id, sort_order, archived',
+      time_entries: 'id, started_at, ended_at, activity_id, category_id',
+      tasks: 'id, scheduled_date, week_start, status',
+      habits: 'id, schedule_type, archived_at',
+      habit_checks: 'id, habit_id, date, [habit_id+date]',
+      settings: 'id',
+    }).upgrade(tx =>
+      tx.table('settings').toCollection().modify({ day_start_hour: 0 })
+    )
   }
 }
 
