@@ -6,7 +6,9 @@ import {
   durationMinutes,
   clipInterval,
   toDayDateString,
+  buildTimelineSegments,
 } from './index'
+import type { TimeInterval } from './index'
 
 const MOSCOW: { timezone: string; day_start_hour: number } = {
   timezone: 'Europe/Moscow',
@@ -88,5 +90,67 @@ describe('toDayDateString', () => {
     // Oct 12 00:30 UTC = Oct 12 03:30 MSK → дата всё ещё Oct 12
     const result = toDayDateString(new Date('2026-10-12T00:30:00Z'), 'Europe/Moscow')
     expect(result).toBe('2026-10-12')
+  })
+})
+
+function entry(id: string, start: string, end: string): TimeInterval {
+  return { id, started_at: start, ended_at: end }
+}
+
+describe('buildTimelineSegments', () => {
+  const dayStart = new Date('2026-10-12T01:00:00Z') // 04:00 MSK
+  const displayEnd = new Date('2026-10-12T10:00:00Z') // 13:00 MSK
+
+  it('пустой день → один gap на весь период', () => {
+    const segs = buildTimelineSegments([], dayStart, displayEnd)
+    expect(segs).toHaveLength(1)
+    expect(segs[0].type).toBe('gap')
+    expect(segs[0].startMs).toBe(dayStart.getTime())
+    expect(segs[0].endMs).toBe(displayEnd.getTime())
+  })
+
+  it('одна запись в середине → gap + entry + gap', () => {
+    const e = entry('1', '2026-10-12T04:00:00Z', '2026-10-12T06:00:00Z')
+    const segs = buildTimelineSegments([e], dayStart, displayEnd)
+    expect(segs).toHaveLength(3)
+    expect(segs[0].type).toBe('gap')
+    expect(segs[1].type).toBe('entry')
+    expect(segs[2].type).toBe('gap')
+  })
+
+  it('запись с начала дня → entry + gap', () => {
+    const e = entry('1', '2026-10-12T01:00:00Z', '2026-10-12T05:00:00Z')
+    const segs = buildTimelineSegments([e], dayStart, displayEnd)
+    expect(segs).toHaveLength(2)
+    expect(segs[0].type).toBe('entry')
+    expect(segs[1].type).toBe('gap')
+  })
+
+  it('запись до конца displayEnd → gap + entry', () => {
+    const e = entry('1', '2026-10-12T06:00:00Z', '2026-10-12T10:00:00Z')
+    const segs = buildTimelineSegments([e], dayStart, displayEnd)
+    expect(segs).toHaveLength(2)
+    expect(segs[0].type).toBe('gap')
+    expect(segs[1].type).toBe('entry')
+  })
+
+  it('запись за пределами периода полностью игнорируется', () => {
+    const e = entry('1', '2026-10-12T11:00:00Z', '2026-10-12T12:00:00Z')
+    const segs = buildTimelineSegments([e], dayStart, displayEnd)
+    expect(segs).toHaveLength(1)
+    expect(segs[0].type).toBe('gap')
+  })
+
+  it('две смежные записи без разрыва → два entry без gap между ними', () => {
+    const e1 = entry('1', '2026-10-12T01:00:00Z', '2026-10-12T04:00:00Z')
+    const e2 = entry('2', '2026-10-12T04:00:00Z', '2026-10-12T07:00:00Z')
+    const segs = buildTimelineSegments([e1, e2], dayStart, displayEnd)
+    const types = segs.map(s => s.type)
+    expect(types).toEqual(['entry', 'entry', 'gap'])
+  })
+
+  it('displayEnd <= dayStart → пустой массив', () => {
+    const segs = buildTimelineSegments([], displayEnd, dayStart)
+    expect(segs).toHaveLength(0)
   })
 })
