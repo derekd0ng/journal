@@ -1,13 +1,17 @@
 import { Outlet } from 'react-router'
 import { BottomNav } from './BottomNav'
+import { DesktopSidebar } from './DesktopSidebar'
 
 export function AppShell() {
   return (
-    <div className="flex min-h-dvh flex-col">
-      <main className="flex-1 pb-20">
-        <Outlet />
-      </main>
-      <BottomNav />
+    <div className="flex min-h-dvh">
+      <DesktopSidebar />
+      <div className="flex flex-col flex-1 min-w-0">
+        <main className="flex-1 pb-20 lg:pb-0">
+          <Outlet />
+        </main>
+        <BottomNav className="lg:hidden" />
+      </div>
     </div>
   )
 }

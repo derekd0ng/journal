@@ -9,9 +9,9 @@ const TABS = [
   { to: '/settings',  label: 'Настройки', Icon: Settings },
 ] as const
 
-export function BottomNav() {
+export function BottomNav({ className }: { className?: string }) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border)] bg-[var(--background)] pb-[env(safe-area-inset-bottom)]">
+    <nav className={`fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border)] bg-[var(--background)] pb-[env(safe-area-inset-bottom)] ${className ?? ''}`}>
       <ul className="flex">
         {TABS.map(({ to, label, Icon }) => (
           <li key={to} className="flex-1">
