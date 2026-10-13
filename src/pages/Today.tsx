@@ -307,7 +307,7 @@ export function Today() {
     <div className="flex flex-col h-full">
       <header className="px-4 pt-5 pb-3 shrink-0 flex items-baseline justify-between">
         <h1 className="text-xl font-bold capitalize">{dayTitle}</h1>
-        <span className="text-xs font-mono text-[var(--muted-foreground)] opacity-50">v0.0.14</span>
+        <span className="text-xs font-mono text-[var(--muted-foreground)] opacity-50">v0.0.15</span>
       </header>
 
       {hasGap && presets && (
