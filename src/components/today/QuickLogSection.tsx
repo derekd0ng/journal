@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/db/schema'
 import { addQuickLog, deleteQuickLog } from '@/db/quickLogs'
@@ -30,6 +30,8 @@ function formatDur(mins: number): string {
 export function QuickLogSection({ date }: Props) {
   const [title, setTitle] = useState('')
   const [duration, setDuration] = useState<number | undefined>(undefined)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const selectRef = useRef<HTMLSelectElement>(null)
 
   const logs = useLiveQuery(
     () => db.quick_logs.where('date').equals(date).sortBy('created_at'),
@@ -45,6 +47,7 @@ export function QuickLogSection({ date }: Props) {
     await addQuickLog(date, t, duration)
     setTitle('')
     setDuration(undefined)
+    inputRef.current?.focus()
   }
 
   return (
@@ -63,16 +66,25 @@ export function QuickLogSection({ date }: Props) {
       {/* Add form */}
       <div className="flex gap-1.5">
         <input
+          ref={inputRef}
           type="text"
           value={title}
           onChange={e => setTitle(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && void handleAdd()}
+          onKeyDown={e => {
+            if (e.key === 'Enter') void handleAdd()
+            if (e.key === 'ArrowRight') { e.preventDefault(); selectRef.current?.focus() }
+          }}
           placeholder="Что сделал?"
           className="flex-1 min-w-0 h-8 px-3 rounded-[8px] border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:ring-1 focus:ring-[var(--ring)] placeholder:text-[var(--muted-foreground)]"
         />
         <select
+          ref={selectRef}
           value={duration ?? ''}
           onChange={e => setDuration(e.target.value !== '' ? Number(e.target.value) : undefined)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') void handleAdd()
+            if (e.key === 'ArrowLeft') { e.preventDefault(); inputRef.current?.focus() }
+          }}
           className="h-8 px-2 rounded-[8px] border border-[var(--border)] bg-[var(--background)] text-sm focus:outline-none focus:ring-1 focus:ring-[var(--ring)] text-[var(--muted-foreground)] shrink-0"
           aria-label="Длительность"
         >
