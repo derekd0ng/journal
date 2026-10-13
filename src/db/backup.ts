@@ -1,7 +1,7 @@
 import { db } from './schema'
 import type {
   Category, Activity, TimeEntry, Task,
-  Habit, HabitCheck, Settings,
+  Habit, HabitCheck, Settings, QuickLog,
 } from './schema'
 
 const BACKUP_VERSION = 1
@@ -17,10 +17,11 @@ export interface BackupData {
   habits: Habit[]
   habit_checks: HabitCheck[]
   settings: Settings[]
+  quick_logs: QuickLog[]
 }
 
 export async function exportBackup(): Promise<BackupData> {
-  const [categories, activities, time_entries, tasks, habits, habit_checks, settings] =
+  const [categories, activities, time_entries, tasks, habits, habit_checks, settings, quick_logs] =
     await Promise.all([
       db.categories.toArray(),
       db.activities.toArray(),
@@ -29,6 +30,7 @@ export async function exportBackup(): Promise<BackupData> {
       db.habits.toArray(),
       db.habit_checks.toArray(),
       db.settings.toArray(),
+      db.quick_logs.toArray(),
     ])
 
   return {
@@ -42,6 +44,7 @@ export async function exportBackup(): Promise<BackupData> {
     habits,
     habit_checks,
     settings,
+    quick_logs,
   }
 }
 
@@ -74,20 +77,25 @@ export async function importBackup(json: unknown): Promise<ImportResult> {
     return { ok: false, error: `Неподдерживаемая версия бэкапа: ${String(data.backup_version)}` }
   }
 
-  const tables: (keyof BackupData)[] = [
+  const requiredTables: (keyof BackupData)[] = [
     'categories', 'activities', 'time_entries',
     'tasks', 'habits', 'habit_checks', 'settings',
   ]
 
-  for (const t of tables) {
+  for (const t of requiredTables) {
     if (!Array.isArray(data[t])) {
       return { ok: false, error: `Файл повреждён: отсутствует поле "${t}"` }
     }
   }
 
+  // quick_logs may be absent in older backups — treat as empty
+  const quickLogsData: QuickLog[] = Array.isArray(data.quick_logs)
+    ? (data.quick_logs as QuickLog[])
+    : []
+
   await db.transaction(
     'rw',
-    [db.categories, db.activities, db.time_entries, db.tasks, db.habits, db.habit_checks, db.settings],
+    [db.categories, db.activities, db.time_entries, db.tasks, db.habits, db.habit_checks, db.settings, db.quick_logs],
     async () => {
       await db.categories.clear()
       await db.activities.clear()
@@ -96,6 +104,7 @@ export async function importBackup(json: unknown): Promise<ImportResult> {
       await db.habits.clear()
       await db.habit_checks.clear()
       await db.settings.clear()
+      await db.quick_logs.clear()
 
       await db.categories.bulkPut(data.categories as Category[])
       await db.activities.bulkPut(data.activities as Activity[])
@@ -104,6 +113,7 @@ export async function importBackup(json: unknown): Promise<ImportResult> {
       await db.habits.bulkPut(data.habits as Habit[])
       await db.habit_checks.bulkPut(data.habit_checks as HabitCheck[])
       await db.settings.bulkPut(data.settings as Settings[])
+      if (quickLogsData.length > 0) await db.quick_logs.bulkPut(quickLogsData)
     },
   )
 
@@ -116,6 +126,7 @@ export async function importBackup(json: unknown): Promise<ImportResult> {
       tasks: (data.tasks as unknown[]).length,
       habits: (data.habits as unknown[]).length,
       habit_checks: (data.habit_checks as unknown[]).length,
+      quick_logs: quickLogsData.length,
     },
   }
 }

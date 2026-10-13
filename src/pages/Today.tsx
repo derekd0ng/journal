@@ -89,6 +89,7 @@ export function Today() {
 
   const zonedViewed = toZonedTime(viewedDate, tz)
   const dayTitle = format(zonedViewed, 'd MMMM, EEEE')
+  const dateStr = format(zonedViewed, 'yyyy-MM-dd')
 
   // ── Open panel / sheet ──────────────────────────────────────
   function handleGapClick(startISO: string, endISO: string) {
@@ -265,6 +266,7 @@ export function Today() {
               dayStart={dayBounds.start}
               dayEnd={dayBounds.end}
               nowDate={isToday ? nowDate : dayBounds.end}
+              date={dateStr}
             />
           ) : (
             <EntryPanel

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { buildDaySummary } from 'lib/analytics'
 import type { TimeEntry, Category, CategoryKind } from '@/db/schema'
+import { QuickLogSection } from './QuickLogSection'
 
 interface Props {
   entries: TimeEntry[]
@@ -8,6 +9,7 @@ interface Props {
   dayStart: Date
   dayEnd: Date
   nowDate: Date
+  date: string  // YYYY-MM-DD local date, for QuickLogSection
 }
 
 const TYPE_LABELS: Record<CategoryKind, { name: string; hint: string }> = {
@@ -30,7 +32,7 @@ function formatDur(mins: number): string {
   return `${h}ч ${m}м`
 }
 
-export function DaySummary({ entries, categories, dayStart, dayEnd, nowDate }: Props) {
+export function DaySummary({ entries, categories, dayStart, dayEnd, nowDate, date }: Props) {
   const [expanded, setExpanded] = useState<Set<CategoryKind>>(new Set())
 
   const catMap = useMemo(
@@ -324,6 +326,11 @@ export function DaySummary({ entries, categories, dayStart, dayEnd, nowDate }: P
           Нет записей за сегодня
         </p>
       )}
+
+      {/* Quick log — small tasks without a dedicated time slot */}
+      <div className="border-t border-[var(--border)] pt-5">
+        <QuickLogSection date={date} />
+      </div>
     </section>
   )
 }

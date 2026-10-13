@@ -80,6 +80,14 @@ export interface Settings {
   updated_at: string
 }
 
+export interface QuickLog {
+  id: string
+  date: string          // YYYY-MM-DD local date
+  title: string
+  duration_minutes?: number
+  created_at: string
+}
+
 export class DayLogDB extends Dexie {
   categories!: EntityTable<Category, 'id'>
   activities!: EntityTable<Activity, 'id'>
@@ -88,6 +96,7 @@ export class DayLogDB extends Dexie {
   habits!: EntityTable<Habit, 'id'>
   habit_checks!: EntityTable<HabitCheck, 'id'>
   settings!: EntityTable<Settings, 'id'>
+  quick_logs!: EntityTable<QuickLog, 'id'>
 
   constructor() {
     super('daylog')
@@ -124,6 +133,17 @@ export class DayLogDB extends Dexie {
     }).upgrade(tx =>
       tx.table('categories').where('id').equals('cat-other').modify({ kind: 'other' })
     )
+    // v4: add quick_logs for micro-task tracking
+    this.version(4).stores({
+      categories: 'id, kind, sort_order, archived',
+      activities: 'id, category_id, sort_order, archived',
+      time_entries: 'id, started_at, ended_at, activity_id, category_id',
+      tasks: 'id, scheduled_date, week_start, status',
+      habits: 'id, schedule_type, archived_at',
+      habit_checks: 'id, habit_id, date, [habit_id+date]',
+      settings: 'id',
+      quick_logs: 'id, date, created_at',
+    })
   }
 }
 
